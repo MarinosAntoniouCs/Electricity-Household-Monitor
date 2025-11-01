@@ -7,6 +7,7 @@ from django.db.models import Sum, Avg, Max, Min, Count
 from django.db.models.functions import TruncDate, TruncHour
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from django.db.models.functions import TruncDate, TruncHour, ExtractHour
 from django.utils.dateparse import parse_datetime
 from django.db.models import Sum, Avg, Max, Min, Count, Q, StdDev
 from django.db.models.functions import TruncDate, TruncHour, ExtractWeekDay
@@ -172,10 +173,18 @@ def dashboard(request):
         count=Count('id')
     ).order_by('date')
     
-    hourly_consumption = measurements.annotate(hour=TruncHour('timestamp')).values('hour').annotate(
-        total=Sum('consumption_kwh'),
-        avg=Avg('consumption_kwh')
-    ).order_by('hour')[:24]
+    hourly_avg_data = measurements.annotate(
+        hour=ExtractHour('timestamp')  # Extracts the hour (0-23)
+    ).values('hour').annotate(
+        avg_consumption=Avg('consumption_kwh')
+    ).order_by('hour')
+
+    # Create a dictionary for all 24 hours to ensure the chart is complete
+    hourly_avg_dict = {item['hour']: item['avg_consumption'] for item in hourly_avg_data}
+    
+    # Build clean labels ("00:00", "01:00", etc.) and their corresponding values
+    hourly_labels = [f"{h:02d}:00" for h in range(24)]
+    hourly_values = [float(hourly_avg_dict.get(h, 0)) for h in range(24)]
     
     meter_stats = measurements.values('meter_id').annotate(
         total_consumption=Sum('consumption_kwh'),
@@ -188,14 +197,11 @@ def dashboard(request):
     daily_labels = [item['date'].strftime('%Y-%m-%d') for item in daily_consumption]
     daily_values = [float(item['total']) if item['total'] else 0 for item in daily_consumption]
     
-    hourly_labels = [item['hour'].strftime('%H:%M') for item in hourly_consumption]
-    hourly_values = [float(item['avg']) if item['avg'] else 0 for item in hourly_consumption]
-    
+ 
     context = {
         'overall_stats': overall_stats,
         'weekday_stats': weekday_stats,
         'daily_consumption': daily_consumption,
-        'hourly_consumption': hourly_consumption,
         'meter_stats': meter_stats,
         'peak_measurements': peak_measurements,
         'start_date': start_date,
