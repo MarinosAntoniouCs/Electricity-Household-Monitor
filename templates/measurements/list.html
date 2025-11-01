@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+
+{% block title %}Measurements - Electricity Monitor{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h2>Electricity Measurements</h2>
+    <p style="margin-top: 0.5rem; color: #666;">View and filter all stored measurement data</p>
+    
+    <form method="get" style="margin-top: 1.5rem;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+            <div class="form-group">
+                <label for="start_date">Start Date:</label>
+                <input type="datetime-local" id="start_date" name="start_date" value="{{ start_date }}">
+            </div>
+            
+            <div class="form-group">
+                <label for="end_date">End Date:</label>
+                <input type="datetime-local" id="end_date" name="end_date" value="{{ end_date }}">
+            </div>
+        </div>
+        
+        <button type="submit" class="btn btn-primary">Apply Filters</button>
+        <a href="{% url 'list_measurements' %}" class="btn" style="background-color: #95a5a6; color: white;">Clear Filters</a>
+    </form>
+</div>
+
+<div class="card">
+    <h3>Measurement Records (Latest 100)</h3>
+    
+    {% if measurements %}
+        <div style="overflow-x: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Meter From</th>
+                        <th>Timestamp</th>
+                        <th>Consumption (kWh)</th>
+                        <th>Duration (min)</th>
+                        <th>Avg Power (kW)</th>
+                        <th>Rate ($/kWh)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for measurement in measurements %}
+                        <tr>
+                            <td><strong>{{ measurement.meter_id }}</strong></td>
+                            <td>{{ measurement.timestamp|date:"Y-m-d H:i:s" }}</td>
+                            <td>{{ measurement.consumption_kwh }} kWh</td>
+                            <td>{{ measurement.duration_minutes }}</td>
+                            <td>{{ measurement.average_power_kw|floatformat:3 }}</td>
+                            <td>${{ measurement.cost_per_kwh|floatformat:4 }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p style="margin-top: 1rem; color: #666; text-align: center; padding: 2rem;">
+            No measurements found. Try adjusting your filters or insert some data using the API endpoint.
+        </p>
+    {% endif %}
+</div>
+
+<div class="card" style="background-color: #f8f9fa;">
+    <h4>Insert New Measurement via API</h4>
+    <p style="margin-top: 0.5rem; color: #666;">
+        POST to: <code>{{ request.scheme }}://{{ request.get_host }}/api/measurements/insert/</code>
+    </p>
+    <pre style="margin-top: 1rem; padding: 1rem; background: #2c3e50; color: #ecf0f1; border-radius: 4px; overflow-x: auto;">
+{
+  "meter_id": "METER001",
+  "timestamp": "2024-11-01T10:30:00Z",
+  "consumption_kwh": 2.5,
+  "voltage": 230.5,
+  "current": 10.5,
+  "power_factor": 0.95
+}</pre>
+</div>
+{% endblock %}

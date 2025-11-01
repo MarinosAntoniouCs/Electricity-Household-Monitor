@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+
+{% block title %}Welcome - Electricity Monitor{% endblock %}
+
+{% block content %}
+<style>
+    .hero-section {
+        background-color: var(--bg-card);
+        border: 1px solid var(--border-color);
+        text-align: center;
+        padding: 5rem 2rem;
+        border-radius: 8px;
+        box-shadow: var(--shadow-md);
+    }
+    .hero-section h1 {
+        font-size: 3.5rem;
+        font-weight: 700;
+        line-height: 1.2;
+        color: var(--text-primary);
+        max-width: 800px;
+        margin: 0 auto;
+    }
+    .hero-section h1 span {
+        color: var(--brand-primary);
+    }
+    .hero-section p {
+        font-size: 1.25rem;
+        color: var(--text-secondary);
+        max-width: 650px;
+        margin: 1.5rem auto 2.5rem;
+    }
+    .hero-section .btn {
+        font-size: 1.1rem;
+        padding: 1rem 2.5rem;
+    }
+    
+    .features-section {
+        margin-top: 4rem;
+        text-align: center;
+    }
+    .features-section h2 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 2.5rem;
+    }
+    .features-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 2rem;
+        text-align: left;
+    }
+    .feature-card {
+        background: var(--bg-card);
+        padding: 2rem;
+        border-radius: 8px;
+        border: 1px solid var(--border-color);
+        box-shadow: var(--shadow-sm);
+    }
+    .feature-card h3 {
+        font-size: 1.5rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+    }
+    .feature-card p {
+        color: var(--text-secondary);
+    }
+</style>
+
+<div class="hero-section">
+    <h1>
+        Understand Your <span>Electricity</span>,
+        Take Control of Your Costs
+    </h1>
+    <p>
+        The simple, powerful way to monitor and analyze your household
+        electricity consumption.
+    </p>
+    <a href="{% url 'login' %}" class="btn btn-primary">Login to Your Dashboard</a>
+</div>
+
+<div class="features-section">
+    <h2>Powerful Insights. Made Simple.</h2>
+    <div class="features-grid">
+        <div class="feature-card">
+            <h3>📊 Live Dashboard</h3>
+            <p>Access your analytics dashboard to see real-time consumption,
+               costs, and peak usage events.</p>
+        </div>
+        <div class="feature-card">
+            <h3>📈 Trend Analysis</h3>
+            <p>Visualize daily and hourly consumption patterns with interactive
+               charts to identify saving opportunities.</p>
+        </div>
+        <div class="feature-card">
+            <h3>🏠 By The Meter</h3>
+            <p>Break down statistics by individual meter to see exactly
+               which devices are using the most power.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

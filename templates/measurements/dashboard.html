@@ -1,0 +1,352 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - Electricity Monitor{% endblock %}
+
+{% block extra_css %}
+<style>
+    .metric-positive {
+        color: #27ae60;
+    }
+    .metric-negative {
+        color: #e74c3c;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card" style="margin-bottom: 2rem;">
+    <form method="get">
+        <div style="display: flex; gap: 1.5rem; align-items: flex-end;">
+            <div class="form-group" style="flex-grow: 1; margin-bottom: 0;">
+                <label for="start_date">Start Date:</label>
+                <input type="datetime-local" id="start_date" name="start_date" 
+                       value="{{ start_date|date:'Y-m-d\TH:i' }}">
+            </div>
+            
+            <div class="form-group" style="flex-grow: 1; margin-bottom: 0;">
+                <label for="end_date">End Date:</label>
+                <input type="datetime-local" id="end_date" name="end_date"
+                       value="{{ end_date|date:'Y-m-d\TH:i' }}">
+            </div>
+            
+            <button type="submit" class="btn btn-primary">Filter</button>
+        </div>
+    </form>
+</div>
+
+<div class="card">
+    <h2>📊 Analytics Dashboard</h2>
+    <p style="margin-top: 0.5rem; color: #666;">
+        Comprehensive electricity consumption analysis and insights
+    </p>
+    <p style="margin-top: 0.25rem; color: #999; font-size: 0.875rem;">
+        Data period: {{ start_date|date:"Y-m-d" }} to {{ end_date|date:"Y-m-d" }}
+    </p>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-label">Total Consumption</div>
+        <div class="stat-value">
+            {{ overall_stats.total_consumption|floatformat:2|default:"0.00" }}
+            <span class="stat-unit">kWh</span>
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-label">Average Consumption</div>
+        <div class="stat-value">
+            {{ overall_stats.avg_consumption|floatformat:3|default:"0.000" }}
+            <span class="stat-unit">kWh</span>
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-label">Peak Consumption</div>
+        <div class="stat-value">
+            {{ overall_stats.max_consumption|floatformat:2|default:"0.00" }}
+            <span class="stat-unit">kWh</span>
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-label">Total Measurements</div>
+        <div class="stat-value">
+            {{ overall_stats.total_measurements|default:"0" }}
+        </div>
+    </div>
+    
+    {% if overall_stats.total_cost %}
+    <div class="stat-card">
+        <div class="stat-label">Total Cost</div>
+        <div class="stat-value">
+            ${{ overall_stats.total_cost|floatformat:2|default:"0.00" }}
+        </div>
+    </div>
+    {% endif %}
+    
+    {% if overall_stats.avg_cost %}
+    <div class="stat-card">
+        <div class="stat-label">Average Cost</div>
+        <div class="stat-value">
+            ${{ overall_stats.avg_cost|floatformat:2|default:"0.00" }}
+        </div>
+    </div>
+    {% endif %}
+    
+    {% if overall_stats.avg_voltage %}
+    <div class="stat-card">
+        <div class="stat-label">Average Voltage</div>
+        <div class="stat-value">
+            {{ overall_stats.avg_voltage|floatformat:1 }}
+            <span class="stat-unit">V</span>
+        </div>
+    </div>
+    {% endif %}
+    
+    {% if overall_stats.avg_current %}
+    <div class="stat-card">
+        <div class="stat-label">Average Current</div>
+        <div class="stat-value">
+            {{ overall_stats.avg_current|floatformat:2 }}
+            <span class="stat-unit">A</span>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="stat-card">
+        <div class="stat-label">Average Rate</div>
+        <div class="stat-value">
+            ${{ overall_stats.avg_rate|floatformat:4|default:"0.00" }}
+            <span class="stat-unit">/ kWh</span>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Min / Max Rate</div>
+        <div class="stat-value">
+            ${{ overall_stats.min_rate|floatformat:4|default:"0.00" }} / ${{ overall_stats.max_rate|floatformat:4|default:"0.00" }}
+        </div>
+    </div>
+</div> <div class="chart-container">
+    <h3>Daily Consumption Trends</h3>
+    <canvas id="dailyChart" style="max-height: 400px;"></canvas>
+</div>
+
+<div class="chart-container">
+    <h3>Hourly Consumption Pattern (Last 24 Hours)</h3>
+    <canvas id="hourlyChart" style="max-height: 400px;"></canvas>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-label">Avg. Weekday Consumption (Mon-Fri)</div>
+        <div class="stat-value">
+            {{ weekday_stats.avg_weekday|floatformat:3|default:"0.00" }}
+            <span class="stat-unit">kWh</span>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-label">Avg. Weekend Consumption (Sat-Sun)</div>
+        <div class="stat-value">
+            {{ weekday_stats.avg_weekend|floatformat:3|default:"0.00" }}
+            <span class="stat-unit">kWh</span>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h3>Consumption by Meter</h3>
+    {% if meter_stats %}
+        <div style="overflow-x: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Meter ID</th>
+                        <th>Total Consumption (kWh)</th>
+                        <th>Average Consumption (kWh)</th>
+                        <th>Measurements Count</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for meter in meter_stats %}
+                        <tr>
+                            <td><strong>{{ meter.meter_id }}</strong></td>
+                            <td>{{ meter.total_consumption|floatformat:2 }}</td>
+                            <td>{{ meter.avg_consumption|floatformat:3 }}</td>
+                            <td>{{ meter.measurement_count }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p style="color: #666; text-align: center; padding: 2rem;">No meter data available</p>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h3>Top 10 Peak Consumption Events</h3>
+    {% if peak_measurements %}
+        <div style="overflow-x: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>Meter ID</th>
+                        <th>Timestamp</th>
+                        <th>Consumption (kWh)</th>
+                        {% if peak_measurements.0.cost %}
+                        <th>Cost ($)</th>
+                        {% endif %}
+                        {% if peak_measurements.0.voltage %}
+                        <th>Voltage (V)</th>
+                        {% endif %}
+                        {% if peak_measurements.0.current %}
+                        <th>Current (A)</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for measurement in peak_measurements %}
+                        <tr>
+                            <td><strong>{{ forloop.counter }}</strong></td>
+                            <td>{{ measurement.meter_id }}</td>
+                            <td>{{ measurement.timestamp|date:"Y-m-d H:i:s" }}</td>
+                            <td style="color: #e74c3c; font-weight: bold;">{{ measurement.consumption_kwh }}</td>
+                            {% if measurement.cost %}
+                            <td>${{ measurement.cost|floatformat:2 }}</td>
+                            {% endif %}
+                            {% if measurement.voltage %}
+                            <td>{{ measurement.voltage|default:"—" }}</td>
+                            {% endif %}
+                            {% if measurement.current %}
+                            <td>{{ measurement.current|default:"—" }}</td>
+                            {% endif %}
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    {% else %}
+        <p style="color: #666; text-align: center; padding: 2rem;">No peak data available</p>
+    {% endif %}
+</div>
+
+{% if daily_consumption %}
+<div class="card">
+    <h3>Daily Breakdown</h3>
+    <div style="overflow-x: auto;">
+        <table>
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Total Consumption (kWh)</th>
+                    <th>Average Consumption (kWh)</th>
+                    <th>Number of Readings</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for day in daily_consumption %}
+                    <tr>
+                        <td>{{ day.date|date:"Y-m-d" }}</td>
+                        <td>{{ day.total|floatformat:2 }}</td>
+                        <td>{{ day.avg|floatformat:3 }}</td>
+                        <td>{{ day.count }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+    // Parse data from Django template
+    const dailyLabels = JSON.parse('{{ daily_labels|safe }}');
+    const dailyValues = JSON.parse('{{ daily_values|safe }}');
+    const hourlyLabels = JSON.parse('{{ hourly_labels|safe }}');
+    const hourlyValues = JSON.parse('{{ hourly_values|safe }}');
+    
+    // Daily consumption chart
+    const dailyCtx = document.getElementById('dailyChart');
+    if (dailyCtx) {
+        const dailyChart = new Chart(dailyCtx.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: dailyLabels,
+                datasets: [{
+                    label: 'Daily Consumption (kWh)',
+                    data: dailyValues,
+                    borderColor: '#3498db',
+                    backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    },
+                    title: {
+                        display: false
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Consumption (kWh)'
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    // Hourly consumption chart
+    const hourlyCtx = document.getElementById('hourlyChart');
+    if (hourlyCtx) {
+        const hourlyChart = new Chart(hourlyCtx.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: hourlyLabels,
+                datasets: [{
+                    label: 'Average Hourly Consumption (kWh)',
+                    data: hourlyValues,
+                    backgroundColor: 'rgba(46, 204, 113, 0.6)',
+                    borderColor: '#2ecc71',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Average Consumption (kWh)'
+                        }
+                    }
+                }
+            }
+        });
+    }
+</script>
+{% endblock %}
