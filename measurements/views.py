@@ -84,16 +84,16 @@ def insert_measurement(request):
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+
 @login_required
 def list_measurements(request):
-    meter_id = request.GET.get('meter_id')
     start_date = request.GET.get('start_date')
     end_date = request.GET.get('end_date')
     
     measurements = Measurement.objects.all()
     
-    if meter_id:
-        measurements = measurements.filter(meter_id=meter_id)
+    # Apply filters
     if start_date:
         start_datetime = parse_datetime(start_date)
         if start_datetime:
@@ -103,19 +103,31 @@ def list_measurements(request):
         if end_datetime:
             measurements = measurements.filter(timestamp__lte=end_datetime)
     
-    measurements = measurements[:100]
+    # Get total count before pagination
+    total_count = measurements.count()
+    
+    # Pagination - 100 per page
+    paginator = Paginator(measurements, 100)
+    page = request.GET.get('page', 1)
+    
+    try:
+        measurements_page = paginator.page(page)
+    except PageNotAnInteger:
+        measurements_page = paginator.page(1)
+    except EmptyPage:
+        measurements_page = paginator.page(paginator.num_pages)
+    
     meter_ids = Measurement.objects.values_list('meter_id', flat=True).distinct()
     
     context = {
-        'measurements': measurements,
+        'measurements': measurements_page,
         'meter_ids': meter_ids,
-        'selected_meter': meter_id,
         'start_date': start_date,
         'end_date': end_date,
+        'total_count': total_count,
     }
     
     return render(request, 'measurements/list.html', context)
-
 
 @login_required
 def dashboard(request):
@@ -197,7 +209,67 @@ def dashboard(request):
     daily_labels = [item['date'].strftime('%Y-%m-%d') for item in daily_consumption]
     daily_values = [float(item['total']) if item['total'] else 0 for item in daily_consumption]
     
- 
+    anomaly_stats = measurements.aggregate(
+        avg=Avg('consumption_kwh'),
+        stddev=StdDev('consumption_kwh')
+    )
+    
+    anomalies = []
+    anomaly_threshold = None
+    
+    if anomaly_stats['avg'] and anomaly_stats['stddev']:
+        # Anomalies are readings > 2 standard deviations above mean
+        anomaly_threshold = float(anomaly_stats['avg']) + (2 * float(anomaly_stats['stddev']))
+        anomalies = measurements.filter(
+            consumption_kwh__gt=anomaly_threshold
+        ).order_by('-consumption_kwh')[:20]
+
+    
+     # 1. Most expensive hours of the day
+    expensive_hours = measurements.annotate(
+        hour=ExtractHour('timestamp')
+    ).values('hour').annotate(
+        avg_cost=Avg('cost'),
+        avg_consumption=Avg('consumption_kwh'),
+        avg_rate=Avg('cost_per_kwh')
+    ).order_by('-avg_cost')[:5]
+    
+    # 2. Cheapest hours of the day
+    cheapest_hours = measurements.annotate(
+        hour=ExtractHour('timestamp')
+    ).values('hour').annotate(
+        avg_cost=Avg('cost'),
+        avg_consumption=Avg('consumption_kwh'),
+        avg_rate=Avg('cost_per_kwh')
+    ).order_by('avg_cost')[:5]
+    
+    # 3. Calculate potential savings
+    rate_stats = measurements.aggregate(
+        min_rate=Min('cost_per_kwh'),
+        max_rate=Max('cost_per_kwh'),
+        current_total_cost=Sum('cost'),
+        total_consumption=Sum('consumption_kwh')
+    )
+    
+    potential_savings = None
+    savings_percentage = None
+    
+    if rate_stats['min_rate'] and rate_stats['total_consumption'] and rate_stats['current_total_cost']:
+        # If all consumption was at the cheapest rate
+        optimal_cost = float(rate_stats['min_rate']) * float(rate_stats['total_consumption'])
+        current_cost = float(rate_stats['current_total_cost'])
+        potential_savings = current_cost - optimal_cost
+        savings_percentage = (potential_savings / current_cost * 100) if current_cost > 0 else 0
+    
+    cost_insights = {
+        'expensive_hours': expensive_hours,
+        'cheapest_hours': cheapest_hours,
+        'potential_savings': potential_savings,
+        'savings_percentage': savings_percentage,
+        'min_rate': rate_stats['min_rate'],
+        'max_rate': rate_stats['max_rate'],
+    }
+
     context = {
         'overall_stats': overall_stats,
         'weekday_stats': weekday_stats,
@@ -210,6 +282,10 @@ def dashboard(request):
         'daily_values': json.dumps(daily_values),
         'hourly_labels': json.dumps(hourly_labels),
         'hourly_values': json.dumps(hourly_values),
+        'anomalies': anomalies,
+        'anomaly_threshold': anomaly_threshold,
+        'anomaly_count': anomalies.count() if anomalies else 0,
+        'cost_insights': cost_insights,
     }
     
     return render(request, 'measurements/dashboard.html', context)

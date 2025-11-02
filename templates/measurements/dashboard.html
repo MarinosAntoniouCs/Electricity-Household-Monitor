@@ -10,6 +10,12 @@
     .metric-negative {
         color: #e74c3c;
     }
+    .row-light {
+    background-color: #fff5f5;
+    }
+    .row-normal {
+        background-color: #ffffff;
+    }
 </style>
 {% endblock %}
 
@@ -35,7 +41,7 @@
 </div>
 
 <div class="card">
-    <h2>📊 Analytics Dashboard</h2>
+    <h2>Analytics Dashboard</h2>
     <p style="margin-top: 0.5rem; color: #666;">
         Comprehensive electricity consumption analysis and insights
     </p>
@@ -68,7 +74,6 @@
             <span class="stat-unit">kWh</span>
         </div>
     </div>
-    
     <div class="stat-card">
         <div class="stat-label">Total Measurements</div>
         <div class="stat-value">
@@ -136,7 +141,163 @@
     <h3>Average Consumption by Hour of Day</h3>
     <canvas id="hourlyChart" style="max-height: 400px;"></canvas>
 </div>
+<!--  ANOMALY DETECTION SECTION - Compact Version -->
+<div class="chart-container" style="border-left: 4px solid #e74c3c;">
+    <h3> Anomaly Detection</h3>
+    
+    {% if anomaly_count > 0 %}
+        <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 2rem; margin-top: 1rem;">
+            <!-- Left: Anomalies Table -->
+            <div>
+                <div style="background-color: #fee; padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1rem;">
+                    <strong style="color: #e74c3c;">{{ anomaly_count }} anomalies detected</strong>
+                    <span style="color: #666; margin-left: 1rem; font-size: 0.9rem;">
+                        (Threshold: {{ anomaly_threshold|floatformat:2 }} kWh)
+                    </span>
+                </div>
+                
+                <div style="max-height: 400px; overflow-y: auto;">
+                    <table style="font-size: 0.9rem;">
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Consumption</th>
+                                <th>Cost</th>
+                                <th>% Above</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for anomaly in anomalies|slice:":20" %}
+                                <tr class="{% cycle 'row-light' 'row-normal' %}">
+                                    <td>{{ anomaly.timestamp|date:"m/d H:i" }}</td>
+                                    <td style="color: #e74c3c; font-weight: bold;">
+                                        {{ anomaly.consumption_kwh|floatformat:2 }} kWh
+                                    </td>
+                                    <td>${{ anomaly.cost|floatformat:2 }}</td>
+                                    <td>+{% widthratio anomaly.consumption_kwh anomaly_threshold 100 %}%</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- Right: Quick Stats -->
+            <div>
+                <div style="background: #fff; border: 1px solid #fee; border-radius: 6px; padding: 1.5rem; margin-bottom: 1rem;">
+                    <div style="font-size: 0.875rem; color: #666; margin-bottom: 0.5rem;">Total Anomalies</div>
+                    <div style="font-size: 2rem; font-weight: bold; color: #e74c3c;">{{ anomaly_count }}</div>
+                </div>
+                
+                <div style="background: #fff; border: 1px solid #fee; border-radius: 6px; padding: 1.5rem;">
+                    <div style="font-size: 0.875rem; color: #666; margin-bottom: 0.5rem;">Detection Threshold</div>
+                    <div style="font-size: 1.5rem; font-weight: bold; color: #e74c3c;">
+                        {{ anomaly_threshold|floatformat:2 }} <span style="font-size: 1rem; color: #999;">kWh</span>
+                    </div>
+                    <div style="font-size: 0.75rem; color: #999; margin-top: 0.5rem;">
+                        2σ above mean
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <p style="color: #27ae60; text-align: center; padding: 2rem; background-color: #eafaf1; border-radius: 6px; margin-top: 1rem;">
+            ✅ No anomalies detected - all consumption patterns are normal
+        </p>
+    {% endif %}
+</div>
 
+<!--  COST INSIGHTS SECTION - Compact Version -->
+<div class="chart-container" style="border-left: 4px solid #f39c12;">
+    <h3> Cost Insights & Savings Opportunities</h3>
+    
+    {% if cost_insights.potential_savings %}
+        <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 2rem; margin-top: 1rem;">
+            <!-- Left: Savings Card -->
+            <div>
+                <div style="background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%); color: white; padding: 1.5rem; border-radius: 8px; height: 100%;">
+                    <div style="font-size: 0.9rem; opacity: 0.9; margin-bottom: 0.5rem;">Potential Savings</div>
+                    <div style="font-size: 2.5rem; font-weight: bold; margin: 0.5rem 0;">
+                        ${{ cost_insights.potential_savings|floatformat:2 }}
+                    </div>
+                    <div style="font-size: 1.25rem; font-weight: 600; margin-bottom: 1rem;">
+                        {{ cost_insights.savings_percentage|floatformat:1 }}% reduction
+                    </div>
+                    <div style="font-size: 0.85rem; opacity: 0.9; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.3);">
+                        By shifting usage to off-peak hours
+                    </div>
+                </div>
+                
+                <!-- Rate Range -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 1rem;">
+                    <div style="background: #e8f5e9; padding: 1rem; border-radius: 6px; text-align: center;">
+                        <div style="font-size: 0.75rem; color: #666;">Lowest Rate</div>
+                        <div style="font-size: 1.25rem; font-weight: bold; color: #27ae60;">
+                            ${{ cost_insights.min_rate|floatformat:4 }}
+                        </div>
+                    </div>
+                    <div style="background: #ffebee; padding: 1rem; border-radius: 6px; text-align: center;">
+                        <div style="font-size: 0.75rem; color: #666;">Highest Rate</div>
+                        <div style="font-size: 1.25rem; font-weight: bold; color: #e74c3c;">
+                            ${{ cost_insights.max_rate|floatformat:4 }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Right: Hour Comparison -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                <!-- Most Expensive Hours -->
+                <div>
+                    <h4 style="color: #e74c3c; margin: 0 0 0.75rem 0; font-size: 1rem;">🔴 Most Expensive</h4>
+                    <table style="font-size: 0.85rem;">
+                        <thead>
+                            <tr>
+                                <th style="padding: 0.5rem;">Hour</th>
+                                <th style="padding: 0.5rem;">Rate</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for hour in cost_insights.expensive_hours %}
+                                <tr>
+                                    <td style="padding: 0.5rem;"><strong>{{ hour.hour|stringformat:"02d" }}:00</strong></td>
+                                    <td style="padding: 0.5rem; color: #e74c3c;">${{ hour.avg_rate|floatformat:4 }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    <p style="margin-top: 0.75rem; color: #666; font-size: 0.75rem;">
+                        Reduce usage during these hours
+                    </p>
+                </div>
+                
+                <!-- Cheapest Hours -->
+                <div>
+                    <h4 style="color: #27ae60; margin: 0 0 0.75rem 0; font-size: 1rem;">🟢 Cheapest Hours</h4>
+                    <table style="font-size: 0.85rem;">
+                        <thead>
+                            <tr>
+                                <th style="padding: 0.5rem;">Hour</th>
+                                <th style="padding: 0.5rem;">Rate</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for hour in cost_insights.cheapest_hours %}
+                                <tr>
+                                    <td style="padding: 0.5rem;"><strong>{{ hour.hour|stringformat:"02d" }}:00</strong></td>
+                                    <td style="padding: 0.5rem; color: #27ae60;">${{ hour.avg_rate|floatformat:4 }}</td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    <p style="margin-top: 0.75rem; color: #666; font-size: 0.75rem;">
+                        Best time for heavy appliances
+                    </p>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
 <div class="stats-grid">
     <div class="stat-card">
         <div class="stat-label">Avg. Weekday Consumption (Mon-Fri)</div>
